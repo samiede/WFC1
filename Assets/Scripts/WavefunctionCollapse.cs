@@ -15,6 +15,13 @@ public class WavefunctionCollapse : MonoBehaviour
     public Tile[,] Tiles => tiles;
     public Vector2Int MapSize => mapSize;
     
+    public static Dictionary<string, int> Directions = new Dictionary<string, int>() {
+        {"left", 0}, 
+        {"top", 1},
+        {"right", 2},
+        {"bottom", 3}};
+
+    
     public void SetupMap()
     {
         tiles = new Tile[mapSize.x, mapSize.y];
@@ -43,17 +50,25 @@ public class WavefunctionCollapse : MonoBehaviour
 
     public void StartCollapse()
     {
+        StartCoroutine(Collapse());
+
+    }
+
+
+    IEnumerator Collapse()
+    {
         Tile initialTile = tiles[startingTile.x, startingTile.y];
         initialTile.CollapseToRandom();
         while (!AllTilesCollapsed())
         {
             Tile currentTile = GetTileWithLowestEntropy();
             currentTile.CollapseToRandom();
-            currentTile.NotifyAboutChange();
+            yield return StartCoroutine(currentTile.NotifyAboutChangeCoroutine());
+            
+            // yield return new WaitForSeconds(1f);
         }
 
         Debug.Log("Done");
-
     }
 
     public Vector2Int GetIndexFromLocation(Vector2 position, Vector3 scale)

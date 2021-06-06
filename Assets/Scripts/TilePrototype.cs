@@ -3,6 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum CardinalDirection
+{
+    left,
+    top,
+    right,
+    bottom
+}
+
 [CreateAssetMenu(fileName = "Default Prototype", menuName = "ScriptableObjects/Tiles/Prototype", order = 1)]
 public class TilePrototype : ScriptableObject
 {

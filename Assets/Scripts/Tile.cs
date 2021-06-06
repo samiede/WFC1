@@ -1,17 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-enum Directions
-{
-    left,
-    top,
-    right,
-    bottom
-}
 
 [ExecuteAlways]
 public class Tile : MonoBehaviour
@@ -23,6 +17,7 @@ public class Tile : MonoBehaviour
     private WavefunctionCollapse _waveFunction;
     private Transform _transform;
     private Vector2Int _tileIndex;
+    private LineRenderer _lr;
 
     public int Entropy => _prototypes.Count;
 
@@ -30,6 +25,7 @@ public class Tile : MonoBehaviour
     {
         PopulatePrototypeList();
         _renderer = GetComponent<SpriteRenderer>();
+        _lr = GetComponent<LineRenderer>();
         _transform = transform;
     }
 
@@ -53,7 +49,8 @@ public class Tile : MonoBehaviour
     // TODO this can be adapted, does not have to collapse to random!
     public void CollapseToRandom()
     {
-        int chosenIndex = UnityEngine.Random.Range(0, _prototypes.Count);
+        Debug.Log("Current tile: " + _tileIndex);
+        int chosenIndex = Random.Range(0, _prototypes.Count);
         TilePrototype prot = _prototypes[chosenIndex];
         _prototypes.Clear();
         _prototypes.Add(prot);
@@ -62,11 +59,22 @@ public class Tile : MonoBehaviour
 
     public void NotifyAboutChange()
     {
+        StartCoroutine(NotifyAboutChangeCoroutine());
+    }
+
+    public IEnumerator NotifyAboutChangeCoroutine()
+    {
+        EnableLineRenderer();
+        
+        // TODO only notify the tiles that have not prompted the prototype update
+        
         // Get tile above 
         if (_tileIndex.y < _waveFunction.MapSize.y - 1)
         {
             Tile above = _waveFunction.Tiles[_tileIndex.x, _tileIndex.y + 1];
             above.NeighbourHasChanged("bottom", this);
+            DrawLineToNeighbourTile(above);
+            yield return new WaitForSeconds(0.5f);
         }
         
         // Get tile to the right
@@ -74,6 +82,9 @@ public class Tile : MonoBehaviour
         {
             Tile toTheRight =  _waveFunction.Tiles[_tileIndex.x + 1, _tileIndex.y];
             toTheRight.NeighbourHasChanged("left", this);
+            DrawLineToNeighbourTile(toTheRight);
+            yield return new WaitForSeconds(0.5f);
+
         }
         
         // Get tile below
@@ -81,16 +92,23 @@ public class Tile : MonoBehaviour
         {
             Tile below = _waveFunction.Tiles[_tileIndex.x, _tileIndex.y -1];
             below.NeighbourHasChanged("top", this);
+            DrawLineToNeighbourTile(below);
+            yield return new WaitForSeconds(0.5f);
+
 
         }
         
         // Get tile to the left
-        // Get tile to the right
         if (_tileIndex.x > 0)
         {
             Tile toTheLeft =  _waveFunction.Tiles[_tileIndex.x - 1, _tileIndex.y];
             toTheLeft.NeighbourHasChanged("right", this);
+            DrawLineToNeighbourTile(toTheLeft);
+            yield return new WaitForSeconds(0.5f);
+
         }
+        
+        DisableLineRenderer();
     }
 
 
@@ -98,7 +116,8 @@ public class Tile : MonoBehaviour
     {
         if (Entropy == 1)
             return;
-        
+
+        int numberOfPrototyesBeforeUpdate = Prototypes.Count;
         List<TilePrototype> neighbourPrototypes = neighbour.Prototypes;
         switch (socket)
         {
@@ -118,47 +137,27 @@ public class Tile : MonoBehaviour
                 break;
         }
         
+        
+        if (Prototypes.Count != numberOfPrototyesBeforeUpdate)
+            NotifyAboutChange();
+        
+        
     }
     
     
-    // Print
-
     void UpdateCompatiblePrototypes(string neighbourSocket, string ownSocket, List<TilePrototype> neighbourPrototypes)
     {
-        List<TilePrototype> remainingPrototypes = new List<TilePrototype>();
+        int ownSocketIndex = WavefunctionCollapse.Directions[ownSocket];
+        int neighbourSocketIndex = WavefunctionCollapse.Directions[neighbourSocket];
         
-        // foreach (TilePrototype neighbourPrototype in neighbourPrototypes)
-        // {
-        //     int neighbourIndex = 0;
-        //     for (int n = 0; n < neighbourPrototype.sockets.Count; n++)
-        //     {
-        //         if (neighbourPrototype.sockets[n].key == neighbourSocket)
-        //         {
-        //             neighbourIndex = n;
-        //             break;
-        //         }
-        //     }
-        //     Debug.Log("Neighbour Index: " + neighbourIndex);
-        //     
-        //     foreach (TilePrototype ownPrototype in _prototypes)
-        //     {
-        //         int ownIndex = 0;
-        //         for (int o = 0; o < ownPrototype.sockets.Count; o++)
-        //         {
-        //             if (ownPrototype.sockets[o].key == ownSocket)
-        //             {
-        //                 ownIndex = o;
-        //                 break;
-        //             }
-        //         }
-        //         
-        //         if (ownPrototype.sockets[ownIndex].value == neighbourPrototype.sockets[neighbourIndex].value)
-        //             remainingPrototypes.Add(ownPrototype);
-        //     }
-        // }
+        for (int n = 0; n < neighbourPrototypes.Count; n++)
+        {
+            _prototypes.RemoveAll(prototype => 
+                prototype.sockets[ownSocketIndex].value != neighbourPrototypes[n].sockets[neighbourSocketIndex].value);
 
-        // _prototypes.Clear();
-        // _prototypes = remainingPrototypes;
+
+        }
+        
         
         if (Entropy == 1)
             ShowCollapsedSprite();
@@ -172,7 +171,23 @@ public class Tile : MonoBehaviour
     void ShowCollapsedSprite()
     {
         _renderer.sprite = _prototypes[0].sprite;
+        _transform.rotation = Quaternion.Euler(0, 0, 90 * _prototypes[0].rotation);
     }
-    
-    
+
+    void EnableLineRenderer() => _lr.enabled = true;
+    void DisableLineRenderer() => _lr.enabled = false;
+
+    void DrawLineToNeighbourTile(Tile neighbour)
+    {
+        _lr.enabled = true;
+        _lr.positionCount = 2;
+        Vector3 start = _transform.position;
+        Vector3 end = neighbour.transform.position;
+        Vector3[] points = {start, end};
+        _lr.SetPositions(points);
+    }
+
+
+
+
 }

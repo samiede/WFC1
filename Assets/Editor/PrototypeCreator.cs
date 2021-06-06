@@ -8,9 +8,11 @@ using UnityEngine;
 public class PrototypeCreator : EditorWindow
 {
     [SerializeField] public List<Sprite> tiles = new List<Sprite>();
+    private bool generateRotations;
 
     private SerializedObject _so;
     private SerializedProperty propTiles;
+    private SerializedProperty propRotations;
 
     [MenuItem("Tools/Prototype Creator")]
     public static void OpenWindow() => GetWindow<PrototypeCreator>("Prototype Creator");
@@ -19,21 +21,23 @@ public class PrototypeCreator : EditorWindow
     {
         _so = new SerializedObject(this);
         propTiles = _so.FindProperty("tiles");
+        propRotations = _so.FindProperty("generateRotations");
     }
 
 
     private void OnGUI()
     {
         EditorGUILayout.LabelField("Tiles", EditorStyles.boldLabel);
-        
+
         _so.Update();
         EditorGUILayout.PropertyField(propTiles);
+
         using (new EditorGUI.DisabledScope(tiles.Count == 0))
         {
             if (GUILayout.Button("Generate!"))
                 GeneratePrototypes();
         }
-        _so.ApplyModifiedProperties();
+        generateRotations = EditorGUILayout.Toggle("Generate Rotations", generateRotations);
 
         GUILayout.FlexibleSpace();
         using (new GUILayout.VerticalScope(EditorStyles.helpBox))
@@ -46,6 +50,8 @@ public class PrototypeCreator : EditorWindow
             if (GUILayout.Button("Reset"))
                 tiles.Clear();
         }
+        
+        _so.ApplyModifiedProperties();
     }
 
     void GeneratePrototypes()
@@ -65,7 +71,7 @@ public class PrototypeCreator : EditorWindow
             prototype.sprite = sprite;
             prototype.sockets = CalculateSockets(sprite);
             
-            if (AllSocketsAreEqual(prototype.sockets))
+            if (AllSocketsAreEqual(prototype.sockets) || !generateRotations)
             {
                 SocketDictionary socketDictionary = new SocketDictionary();
                 // Create serializable dict to use in WFC
@@ -102,16 +108,11 @@ public class PrototypeCreator : EditorWindow
                     }
                     
                     rotatedPrototype.socketDict = socketDictionary;
-                    if (rotatedPrototype.socketDict.Count > 0)
-                    {
-                        Debug.Log("Yes: " + rotatedPrototype.socketDict.Count);
-                    }
+
                     AssetDatabase.CreateAsset(rotatedPrototype, "Assets/Prototypes/" + sprite.name + "_" + i + ".asset");
                 }
-                AssetDatabase.SaveAssets();
-                
             }
-
+            AssetDatabase.SaveAssets();
         }
     }
 
