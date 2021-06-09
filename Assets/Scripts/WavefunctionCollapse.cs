@@ -7,6 +7,7 @@ using Random = UnityEngine.Random;
 
 public class WavefunctionCollapse : MonoBehaviour
 {
+    [SerializeField] private GlobalVars _vars;
     [SerializeField] private Tile tilePrefab;
     [SerializeField] private Vector2Int mapSize;
     [SerializeField] private Vector2Int startingTile = new Vector2Int(0, 0);
@@ -21,7 +22,11 @@ public class WavefunctionCollapse : MonoBehaviour
         {"right", 2},
         {"bottom", 3}};
 
-    
+    private void Start()
+    {
+        // SetupMap();
+    }
+
     public void SetupMap()
     {
         tiles = new Tile[mapSize.x, mapSize.y];
@@ -50,6 +55,7 @@ public class WavefunctionCollapse : MonoBehaviour
 
     public void StartCollapse()
     {
+        // SetupMap();
         StartCoroutine(Collapse());
 
     }
@@ -59,13 +65,17 @@ public class WavefunctionCollapse : MonoBehaviour
     {
         Tile initialTile = tiles[startingTile.x, startingTile.y];
         initialTile.CollapseToRandom();
+        if (_vars.animationDelay > 0)
+            yield return StartCoroutine(initialTile.NotifyAboutChangeCoroutine());
+        else StartCoroutine(initialTile.NotifyAboutChangeCoroutine());
         while (!AllTilesCollapsed())
         {
             Tile currentTile = GetTileWithLowestEntropy();
             currentTile.CollapseToRandom();
-            yield return StartCoroutine(currentTile.NotifyAboutChangeCoroutine());
-            
-            // yield return new WaitForSeconds(1f);
+            if (_vars.animationDelay > 0)
+                yield return StartCoroutine(currentTile.NotifyAboutChangeCoroutine());
+            else
+                StartCoroutine(currentTile.NotifyAboutChangeCoroutine());
         }
 
         Debug.Log("Done");
@@ -110,7 +120,7 @@ public class WavefunctionCollapse : MonoBehaviour
         {
             for (int y = 0; y < mapSize.y; y++)
             {
-                if (tiles[x, y].Entropy < lowestEntropy)
+                if (tiles[x, y].Entropy < lowestEntropy && tiles[x, y].Entropy > 1)
                     lowestEntropy = tiles[x, y].Entropy;
             }
         }
@@ -126,7 +136,6 @@ public class WavefunctionCollapse : MonoBehaviour
 
         Tile randomTileWithLowestEntropy = lowestEntropyTiles[Random.Range(0, lowestEntropyTiles.Count)];
         return randomTileWithLowestEntropy;
-        // return GetIndexFromLocation(randomTileWithLowestEntropy.transform.position, randomTileWithLowestEntropy.transform.localScale);
 
     }
 

@@ -204,11 +204,14 @@ public class PrototypeCreator : EditorWindow
         }
         
 
-        return Keygen(
+        int hash =  Keygen(
             ColorUtility.ToHtmlStringRGBA(pixelValues[0]),
             ColorUtility.ToHtmlStringRGBA(pixelValues[1]),
             ColorUtility.ToHtmlStringRGBA(pixelValues[2])
             );
+
+        return hash;
+
     }
 
     void CheckAndAddSprite(Sprite sprite)

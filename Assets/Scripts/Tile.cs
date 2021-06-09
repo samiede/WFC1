@@ -4,12 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using Utils;
 using Random = UnityEngine.Random;
 
 
-[ExecuteAlways]
+// [ExecuteAlways]
 public class Tile : MonoBehaviour
 {
+    [SerializeField] private GlobalVars _vars;
     [SerializeField]
     private List<TilePrototype> _prototypes = new List<TilePrototype>();
     public List<TilePrototype> Prototypes => _prototypes;
@@ -32,6 +34,7 @@ public class Tile : MonoBehaviour
     private void Start()
     {
         _waveFunction = FindObjectOfType<WavefunctionCollapse>();
+        ShowCollapsedSprite();
     }
 
     void PopulatePrototypeList()
@@ -49,7 +52,6 @@ public class Tile : MonoBehaviour
     // TODO this can be adapted, does not have to collapse to random!
     public void CollapseToRandom()
     {
-        Debug.Log("Current tile: " + _tileIndex);
         int chosenIndex = Random.Range(0, _prototypes.Count);
         TilePrototype prot = _prototypes[chosenIndex];
         _prototypes.Clear();
@@ -64,7 +66,7 @@ public class Tile : MonoBehaviour
 
     public IEnumerator NotifyAboutChangeCoroutine()
     {
-        EnableLineRenderer();
+        // EnableLineRenderer();
         
         // TODO only notify the tiles that have not prompted the prototype update
         
@@ -72,18 +74,38 @@ public class Tile : MonoBehaviour
         if (_tileIndex.y < _waveFunction.MapSize.y - 1)
         {
             Tile above = _waveFunction.Tiles[_tileIndex.x, _tileIndex.y + 1];
-            above.NeighbourHasChanged("bottom", this);
-            DrawLineToNeighbourTile(above);
-            yield return new WaitForSeconds(0.5f);
+            if (above.Entropy > 1)
+            {
+                if (_vars.animationDelay > 0)
+                {
+                    DrawLineToNeighbourTile(above);
+                    yield return new WaitForSeconds(_vars.animationDelay);
+                    yield return above.NeighbourHasChanged("bottom", this);
+                }
+                else
+                {
+                    StartCoroutine(above.NeighbourHasChanged("bottom", this));
+                }
+            }
         }
         
         // Get tile to the right
         if (_tileIndex.x < _waveFunction.MapSize.x - 1)
         {
             Tile toTheRight =  _waveFunction.Tiles[_tileIndex.x + 1, _tileIndex.y];
-            toTheRight.NeighbourHasChanged("left", this);
-            DrawLineToNeighbourTile(toTheRight);
-            yield return new WaitForSeconds(0.5f);
+            if (toTheRight.Entropy > 1)
+            {
+                if (_vars.animationDelay > 0)
+                {
+                    DrawLineToNeighbourTile(toTheRight);
+                    yield return new WaitForSeconds(_vars.animationDelay);
+                    yield return toTheRight.NeighbourHasChanged("left", this);
+                }
+                else
+                {
+                    StartCoroutine(toTheRight.NeighbourHasChanged("left", this));
+                }
+            }
 
         }
         
@@ -91,9 +113,19 @@ public class Tile : MonoBehaviour
         if (_tileIndex.y > 0)
         {
             Tile below = _waveFunction.Tiles[_tileIndex.x, _tileIndex.y -1];
-            below.NeighbourHasChanged("top", this);
-            DrawLineToNeighbourTile(below);
-            yield return new WaitForSeconds(0.5f);
+            if (below.Entropy > 1)
+            {
+                if (_vars.animationDelay > 0)
+                {
+                    DrawLineToNeighbourTile(below);
+                    yield return new WaitForSeconds(_vars.animationDelay);
+                    yield return below.NeighbourHasChanged("top", this);
+                }
+                else
+                {
+                    StartCoroutine(below.NeighbourHasChanged("top", this));
+                }
+            }
 
 
         }
@@ -102,9 +134,19 @@ public class Tile : MonoBehaviour
         if (_tileIndex.x > 0)
         {
             Tile toTheLeft =  _waveFunction.Tiles[_tileIndex.x - 1, _tileIndex.y];
-            toTheLeft.NeighbourHasChanged("right", this);
-            DrawLineToNeighbourTile(toTheLeft);
-            yield return new WaitForSeconds(0.5f);
+            if (toTheLeft.Entropy > 1)
+            {
+                if (_vars.animationDelay > 0)
+                {
+                    DrawLineToNeighbourTile(toTheLeft);
+                    yield return new WaitForSeconds(_vars.animationDelay);
+                    yield return toTheLeft.NeighbourHasChanged("right", this);
+                }
+                else
+                {
+                    StartCoroutine(toTheLeft.NeighbourHasChanged("right", this));
+                }
+            }
 
         }
         
@@ -112,10 +154,10 @@ public class Tile : MonoBehaviour
     }
 
 
-    public void NeighbourHasChanged(string socket, Tile neighbour)
+    public IEnumerator NeighbourHasChanged(string socket, Tile neighbour)
     {
         if (Entropy == 1)
-            return;
+            yield break;
 
         int numberOfPrototyesBeforeUpdate = Prototypes.Count;
         List<TilePrototype> neighbourPrototypes = neighbour.Prototypes;
@@ -136,10 +178,18 @@ public class Tile : MonoBehaviour
             default:
                 break;
         }
-        
-        
+
+
         if (Prototypes.Count != numberOfPrototyesBeforeUpdate)
-            NotifyAboutChange();
+        {
+            if (_vars.animationDelay > 0)
+                yield return NotifyAboutChangeCoroutine();
+            else
+            {
+                NotifyAboutChange();
+            }
+            
+        }
         
         
     }
@@ -149,18 +199,27 @@ public class Tile : MonoBehaviour
     {
         int ownSocketIndex = WavefunctionCollapse.Directions[ownSocket];
         int neighbourSocketIndex = WavefunctionCollapse.Directions[neighbourSocket];
+        List<TilePrototype> fittingSockets = new List<TilePrototype>();
         
         for (int n = 0; n < neighbourPrototypes.Count; n++)
         {
-            _prototypes.RemoveAll(prototype => 
-                prototype.sockets[ownSocketIndex].value != neighbourPrototypes[n].sockets[neighbourSocketIndex].value);
-
-
+            for (int o = 0; o < Prototypes.Count; o++)
+            {
+                if (_prototypes[o].sockets[ownSocketIndex].value ==
+                    neighbourPrototypes[n].sockets[neighbourSocketIndex].value && !fittingSockets.Contains(_prototypes[o]))
+                {
+                    TilePrototype prot = _prototypes[o];
+                    fittingSockets.Add(prot);
+                }
+            }
         }
-        
-        
-        if (Entropy == 1)
-            ShowCollapsedSprite();
+
+        if (fittingSockets.Count != Prototypes.Count)
+        {
+            _prototypes.Clear();
+            _prototypes.AddRange(fittingSockets);
+        }
+        ShowCollapsedSprite();
     }
     
     public void SetTileIndex(Vector2Int tileIndex)
@@ -170,8 +229,50 @@ public class Tile : MonoBehaviour
 
     void ShowCollapsedSprite()
     {
+        int numberOfPrototypes = Prototypes.Count;
+        RemoveAllChildren(gameObject);
         _renderer.sprite = _prototypes[0].sprite;
-        _transform.rotation = Quaternion.Euler(0, 0, 90 * _prototypes[0].rotation);
+        if (numberOfPrototypes == 1)
+        {
+            _renderer.enabled = true;
+            _transform.rotation = Quaternion.Euler(0, 0, -90 * _prototypes[0].rotation);
+        }
+        else
+        {
+            _renderer.enabled = false;
+            int numberOfImagesPerRow = Mathf.CeilToInt(Mathf.Sqrt(numberOfPrototypes));
+            float tileSize = (1f / numberOfImagesPerRow) * 0.95f;
+            for (int x = 0; x < numberOfImagesPerRow; x++)
+            {
+                for (int y = 0; y < numberOfImagesPerRow; y++)
+                {
+                    if (_prototypes.Count - 1 >= x * numberOfImagesPerRow + y)
+                    {
+                        GameObject newTileHolder = new GameObject(_prototypes[x * numberOfImagesPerRow + y].name);
+                        newTileHolder.transform.parent = _transform;
+                        SpriteRenderer r = newTileHolder.AddComponent<SpriteRenderer>();
+                        r.sprite = _prototypes[x * numberOfImagesPerRow + y].sprite;
+                        newTileHolder.transform.localPosition = new Vector3(
+                            x * tileSize - _transform.localScale.x / 2 + tileSize/2, 
+                            _transform.localScale.y - y * tileSize - tileSize/2 - _transform.localScale.y / 2, 
+                            0f);
+                        newTileHolder.transform.localScale = new Vector3(tileSize, tileSize, 1);
+                        newTileHolder.transform.localRotation = Quaternion.Euler(0f, 0f, -90 * _prototypes[x * numberOfImagesPerRow + y].rotation);
+                    }
+                }
+            }
+        }
+        
+    }
+
+    public static void RemoveAllChildren(GameObject parent)
+    {
+        Transform transform;
+        for (int i = 0; i < parent.transform.childCount; i++)
+        {
+            transform = parent.transform.GetChild(i);
+            Destroy(transform.gameObject);
+        }
     }
 
     void EnableLineRenderer() => _lr.enabled = true;
