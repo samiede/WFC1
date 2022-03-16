@@ -1029,8 +1029,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _vars: {fileID: 11400000, guid: 372ad7956d8584c0a90d00823673cb5e, type: 2}
-  _wfc: {fileID: 0}
   animationSpeedSlider: {fileID: 59307105}
+  _wfc: {fileID: 2123284635}
 --- !u!114 &1423509150
 MonoBehaviour:
   m_ObjectHideFlags: 0

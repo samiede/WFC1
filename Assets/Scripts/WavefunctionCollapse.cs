@@ -11,7 +11,7 @@ public class WavefunctionCollapse : MonoBehaviour
     [SerializeField] private Tile tilePrefab;
     [SerializeField] private Vector2Int mapSize;
     [SerializeField] private Vector2Int startingTile = new Vector2Int(0, 0);
-    
+
     private Tile[,] tiles;
     public Tile[,] Tiles => tiles;
     public Vector2Int MapSize => mapSize;
@@ -34,7 +34,7 @@ public class WavefunctionCollapse : MonoBehaviour
         string holderName = "Generated Map";
         if (transform.Find(holderName))
         {
-            DestroyImmediate(transform.Find(holderName).gameObject);
+            Destroy(transform.Find(holderName).gameObject);
         }
         Transform mapHolder = new GameObject(holderName).transform;
         mapHolder.parent = transform;
@@ -57,7 +57,6 @@ public class WavefunctionCollapse : MonoBehaviour
     {
         // SetupMap();
         StartCoroutine(Collapse());
-
     }
 
 
@@ -65,9 +64,11 @@ public class WavefunctionCollapse : MonoBehaviour
     {
         Tile initialTile = tiles[startingTile.x, startingTile.y];
         initialTile.CollapseToRandom();
+        
         if (_vars.animationDelay > 0)
             yield return StartCoroutine(initialTile.NotifyAboutChangeCoroutine());
         else StartCoroutine(initialTile.NotifyAboutChangeCoroutine());
+        
         while (!AllTilesCollapsed())
         {
             Tile currentTile = GetTileWithLowestEntropy();
